@@ -14,6 +14,6 @@ RUN go get github.com/gorilla/mux \
     && echo "runuser -l godo-user -c '/home/godo-user/go_do/main'" >> /root/start.sh \
     && chmod ugo+x /root/start.sh
 
-EXPOSE 9876
+EXPOSE 8000
 
 ENTRYPOINT ["/root/start.sh"]
