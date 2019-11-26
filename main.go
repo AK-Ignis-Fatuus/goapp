@@ -12,17 +12,17 @@ import (
 )
 
 const (
-  DB_USER= 
-  DB_PASSWORD= 
-  DB_NAME= 
-  DB_HOST= 
-  DB_PORT= 
+	DB_USER     = "postgres"
+	DB_PASSWORD = "akram1911"
+	DB_NAME     = "postgres"
+        DB_HOST     = "184.172.229.212"
+        DB_PORT     = "31611"
 )
 
 type Task struct {
-	TaskID   string //`json:"taskID"`
-	TaskName string //`json:"taskName"`
-        //ToDo     string
+	TaskID   string `json:"taskID"`
+	TaskName string `json:"taskName"`
+        ToDo     string `json:"Todo"`
 }
 
 type JsonResponse struct {
@@ -66,13 +66,13 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 		var id int
 		var taskID string
 		var taskName string
-              //  var Todo string
+                var Todo string
 
-		err = rows.Scan(&id, &taskID, &taskName)
+		err = rows.Scan(&id, &taskID, &taskName, &Todo)
 
 		checkErr(err)
 
-		tasks = append(tasks, Task{TaskID: taskID, TaskName: taskName})
+		tasks = append(tasks, Task{TaskID: taskID, TaskName: taskName, ToDo: Todo})
 	}
 
 	var response = JsonResponse{Type: "success", Data: tasks}
@@ -84,21 +84,22 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 func CreateTask(w http.ResponseWriter, r *http.Request) {
 	taskID := r.FormValue("taskID")
 	taskName := r.FormValue("taskName")
+	Todo := r.FormValue("Todo")
 
 	var response = JsonResponse{}
 
 	if taskID == "" || taskName == "" {
-		response = JsonResponse{Type: "error", Message: "You are missing taskID or taskName parameter."}
+		response = JsonResponse{Type: "error", Message: "You are missing taskID, taskName or Todo parameter."}
 	} else {
 		db := setupDB()
 
 		printMessage("Inserting task into DB")
 
-		fmt.Println("Inserting new task with ID: " + taskID + " and name: " + taskName)
+		fmt.Println("Inserting new task with ID: " + taskID + " name: " + taskName + " and todo " + Todo)
 
 		//var lastInsertID int
 		//err := db.QueryRow("INSERT INTO tasks(taskID, taskName) VALUES($1, $2) returning id;", taskID, taskName).Scan(&lastInsertID)
-                _, err := db.Exec("INSERT INTO tasks (taskid, taskname) VALUES($1, $2)", taskID, taskName)
+                _, err := db.Exec("INSERT INTO tasks (taskid, taskname, todo) VALUES($1, $2, $3)", taskID, taskName, Todo)
 		checkErr(err)
 
 		response = JsonResponse{Type: "success", Message: "Task has been inserted successfully!"}
