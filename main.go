@@ -1,89 +1,172 @@
 package main
 
 import (
-  "fmt"
-  "github.com/gorilla/mux"
-  "net/http"
-  "encoding/json"
-  "math/rand"
-  "strconv"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
+)
+
+const (
+	DB_USER     = ""
+	DB_PASSWORD = ""
+	DB_NAME     = ""
+  DB_HOST     = ""
+  DB_PORT     = ""
 )
 
 type Task struct {
-  ID string `json:"id"`
-  Description string `json:"task"`
-  Status bool `json:"done"`	
+	TaskID   string //`json:"taskID"`
+	TaskName string //`json:"taskName"`
+        //ToDo     string
 }
 
-var tasks []Task
-
-func getTasks(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
-  json.NewEncoder(w).Encode(tasks)
-}
-
-func createTask(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
-  var task Task
-  _ = json.NewDecoder(r.Body).Decode(&task)
-  task.ID = strconv.Itoa(rand.Intn(1000000))
-  tasks = append(tasks, task)
-  json.NewEncoder(w).Encode(&task)
-}
-
-func getTask(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
-  params := mux.Vars(r)
-  for _, item := range tasks {
-    if item.ID == params["id"] {
-      json.NewEncoder(w).Encode(item)
-      return
-    }
-  }
-  json.NewEncoder(w).Encode(&Task{})
-}
-
-func updateTask(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
-  params := mux.Vars(r)
-  for index, item := range tasks {
-    if item.ID == params["id"] {
-      tasks = append(tasks[:index], tasks[index+1:]...)
-      var task Task
-      _ = json.NewDecoder(r.Body).Decode(&task)
-      task.ID = params["id"]
-      tasks = append(tasks, task)
-      json.NewEncoder(w).Encode(&task)
-      
-      return
-    }
-  }
-  json.NewEncoder(w).Encode(tasks)
-}
-
-func deleteTask(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
-  params := mux.Vars(r)
-  for index, item := range tasks {
-    if item.ID == params["id"] {
-      tasks = append(tasks[:index], tasks[index+1:]...)
-      break
-    }
-  }
-  json.NewEncoder(w).Encode(tasks)
+type JsonResponse struct {
+	Type    string `json:"type"`
+	Data    []Task `json:"data"`
+	Message string `json:"message"`
 }
 
 func main() {
-  fmt.Println("It works!!!")
-  router := mux.NewRouter()	
-  
-  tasks = append(tasks, Task{ID: "1", Description: "My first Task", Status: false})
-  
-  router.HandleFunc("/tasks", getTasks).Methods("GET")
-  router.HandleFunc("/tasks", createTask).Methods("POST")
-  router.HandleFunc("/tasks/{id}", getTask).Methods("GET")
-  router.HandleFunc("/tasks/{id}", updateTask).Methods("PUT")
-  router.HandleFunc("/tasks/{id}", deleteTask).Methods("DELETE")
-  
-  http.ListenAndServe(":9876", router)
+	router := mux.NewRouter()
+
+	// Get all tasks
+	router.HandleFunc("/tasks/", GetTasks).Methods("GET")
+
+	// Create a task
+	router.HandleFunc("/tasks/create", CreateTask).Methods("POST")
+
+	// Delete a task by id
+	router.HandleFunc("/tasks/{taskid}", DeleteTask).Methods("DELETE")
+
+	// Delete all tasks
+	router.HandleFunc("/tasks/deleteall", DeleteTasks).Methods("DELETE")
+
+	log.Fatal(http.ListenAndServe(":8000", router))
+}
+
+// Get all tasks
+func GetTasks(w http.ResponseWriter, r *http.Request) {
+	db := setupDB()
+
+	printMessage("Getting tasks...")
+
+	// Get all tasks from tasks table that don't have taskID = "1"
+	rows, err := db.Query("SELECT * FROM tasks where taskID <> $1", "1")
+
+	checkErr(err)
+	var tasks []Task
+	// var response []JsonResponse
+	// Foreach task
+	for rows.Next() {
+		var id int
+		var taskID string
+		var taskName string
+              //  var Todo string
+
+		err = rows.Scan(&id, &taskID, &taskName)
+
+		checkErr(err)
+
+		tasks = append(tasks, Task{TaskID: taskID, TaskName: taskName})
+	}
+
+	var response = JsonResponse{Type: "success", Data: tasks}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// Create task
+func CreateTask(w http.ResponseWriter, r *http.Request) {
+	taskID := r.FormValue("taskID")
+	taskName := r.FormValue("taskName")
+
+	var response = JsonResponse{}
+
+	if taskID == "" || taskName == "" {
+		response = JsonResponse{Type: "error", Message: "You are missing taskID or taskName parameter."}
+	} else {
+		db := setupDB()
+
+		printMessage("Inserting task into DB")
+
+		fmt.Println("Inserting new task with ID: " + taskID + " and name: " + taskName)
+
+		//var lastInsertID int
+		//err := db.QueryRow("INSERT INTO tasks(taskID, taskName) VALUES($1, $2) returning id;", taskID, taskName).Scan(&lastInsertID)
+                _, err := db.Exec("INSERT INTO tasks (taskid, taskname) VALUES($1, $2)", taskID, taskName)
+		checkErr(err)
+
+		response = JsonResponse{Type: "success", Message: "Task has been inserted successfully!"}
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// Delete task
+func DeleteTask(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	taskID := params["taskid"]
+
+	var response = JsonResponse{}
+
+	if taskID == "" {
+		response = JsonResponse{Type: "error", Message: "You are missing taskID parameter."}
+	} else {
+		db := setupDB()
+
+		printMessage("Deleting task from DB")
+
+		_, err := db.Exec("DELETE FROM tasks where taskID = $1", taskID)
+		checkErr(err)
+
+		response = JsonResponse{Type: "success", Message: "Task has been deleted successfully!"}
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// Delete all tasks
+func DeleteTasks(w http.ResponseWriter, r *http.Request) {
+	db := setupDB()
+
+	printMessage("Deleting all tasks...")
+
+	_, err := db.Exec("DELETE FROM tasks")
+	checkErr(err)
+
+	printMessage("All tasks have been deleted successfully!")
+
+	var response = JsonResponse{Type: "success", Message: "All tasks have been deleted successfully!"}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// DB set up
+func setupDB() *sql.DB {
+	dbinfo := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=disable", DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
+	db, err := sql.Open("postgres", dbinfo)
+
+	checkErr(err)
+
+	return db
+}
+
+// Function for handling messages
+func printMessage(message string) {
+	fmt.Println("")
+	fmt.Println(message)
+	fmt.Println("")
+}
+
+// Function for handling errors
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
