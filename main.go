@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	DB_USER     = "postgres"
-	DB_PASSWORD = "akram1911"
-	DB_NAME     = "postgres"
-        DB_HOST     = "184.172.229.212"
-        DB_PORT     = "31611"
+	DB_USER     =
+	DB_PASSWORD = 
+	DB_NAME     = 
+        DB_HOST     = 
+        DB_PORT     = 
 )
 
 type Task struct {
