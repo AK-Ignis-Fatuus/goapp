@@ -1,6 +1,6 @@
 package main
 test field changed field revert
-import_a (
+import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
