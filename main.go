@@ -1,5 +1,5 @@
 package main
-test field changed field revert
+test field for revert
 import (
 	"database/sql"
 	"encoding/json"
