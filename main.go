@@ -1,5 +1,5 @@
 package main
-#test field changed field revert
+test field changed field revert
 import_a (
 	"database/sql"
 	"encoding/json"
